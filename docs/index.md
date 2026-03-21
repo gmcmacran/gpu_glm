@@ -5,7 +5,7 @@ Iteratively Reweighted Least Squares (IRLS) algorithm.
 
 This package provides:
 
-- Gaussian, Bernoulli, Poisson, Gamma, and Inverse Gaussian GLMs
+- Gaussian, Bernoulli, Poisson, Gamma, and Inverse Gaussian models.
 - Multiple link functions (identity, log, inverse, logit, probit, etc.)
 - A clean, extensible IRLS base class
 - NumPy-based implementation with no heavy dependencies
