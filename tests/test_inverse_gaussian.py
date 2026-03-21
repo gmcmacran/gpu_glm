@@ -52,7 +52,6 @@ def make_dataset(N, Beta, link):
 
 
 def test_fit():
-
     links = ["1/mu^2", "inverse", "identity", "log"]
     for link in links:
         if link == "1/mu^2" or link == "inverse":

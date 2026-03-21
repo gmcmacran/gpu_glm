@@ -48,7 +48,6 @@ def make_dataset(N, Beta, link):
 
 
 def test_fit():
-
     links = ["identity", "log", "inverse"]
     for link in links:
         if link == "identity":

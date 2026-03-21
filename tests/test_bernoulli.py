@@ -46,7 +46,6 @@ def make_dataset(N, Beta, link):
 
 
 def test_fit():
-
     links = ["logit", "probit"]
     for link in links:
         if link == "logit" or link == "probit":
