@@ -1,0 +1,23 @@
+
+* Conda Environment: conda create -n gpu_glm python=3.13.5 -y
+* Activate Conda: conda activate gpu_glm
+* Deactivate Conda: conda deactivate
+* Install build: pip install build
+* Build: python -m build
+* Install: pip install .
+* Install Dev: pip install -e .[dev]
+* Uninstall: pip uninstall gpu_glm -y
+* Style: ruff format .
+* Lint: ruff check . --fix
+* Pre-commit check: pre-commit run --all-files
+* Test: pytest -v
+* Document: mkdocs build --strict
+* Serve documentation: mkdocs serve
+
+* import: from gpu_glm import (
+    bernoulli_glm,
+    gamma_glm,
+    gaussian_glm,
+    inverse_gaussian_glm,
+    poisson_glm,
+)
