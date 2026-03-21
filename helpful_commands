@@ -14,10 +14,4 @@
 * Document: mkdocs build --strict
 * Serve documentation: mkdocs serve
 
-* import: from gpu_glm import (
-    bernoulli_glm,
-    gamma_glm,
-    gaussian_glm,
-    inverse_gaussian_glm,
-    poisson_glm,
-)
+from gpu_glm import gaussian_glm, bernoulli_glm, poisson_glm, gamma_glm, inverse_gaussian_glm
