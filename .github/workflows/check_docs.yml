@@ -2,34 +2,27 @@ name: check_documents
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 jobs:
   build-docs:
-    name: Build Documentation (${{ matrix.os }} / py${{ matrix.python-version }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.12"]
+    name: Build Documentation
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
-          pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
+          pip install -e ".[dev]"
 
       - name: Build documentation
         run: |
