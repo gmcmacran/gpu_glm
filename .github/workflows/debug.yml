@@ -1,4 +1,0 @@
-- name: Debug directory structure
-  run: |
-    pwd
-    ls -R .
