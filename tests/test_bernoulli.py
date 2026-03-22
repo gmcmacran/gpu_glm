@@ -45,12 +45,27 @@ def make_dataset(N, Beta, link):
     return X, Y
 
 
+def test_intercept_fit():
+    links = ["logit", "probit"]
+    for link in links:
+        if link == "logit" or link == "probit":
+            Beta = np.array([0.04, 0.02, 0.015])
+            X, Y = make_dataset(N=10000, Beta=Beta, link=link)
+            cutoff = 1
+
+        model = bernoulli_glm(link)
+        model.fit(X, Y)
+
+        assert_equal(check_results(model, Beta, X, Y, cutoff), True)
+
+
 def test_fit():
     links = ["logit", "probit"]
     for link in links:
         if link == "logit" or link == "probit":
             Beta = np.array([0.04, 0.02, 0.015])
             X, Y = make_dataset(N=10000, Beta=Beta, link=link)
+            X = X[:, [0, 1]]  # Remove intercept
             cutoff = 1
 
         model = bernoulli_glm(link)

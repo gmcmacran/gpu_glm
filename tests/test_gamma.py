@@ -47,12 +47,27 @@ def make_dataset(N, Beta, link):
     return X, Y
 
 
+def test_intercept_fit():
+    links = ["inverse", "identity", "log"]
+    for link in links:
+        if link == "inverse" or link == "identity" or link == "log":
+            Beta = np.array([0.5, 1, 1.5])
+            X, Y = make_dataset(N=10000, Beta=Beta, link=link)
+            cutoff = 1
+
+        model = gamma_glm(link)
+        model.fit(X, Y)
+
+        assert_equal(check_results(model, Beta, X, Y, cutoff), True)
+
+
 def test_fit():
     links = ["inverse", "identity", "log"]
     for link in links:
         if link == "inverse" or link == "identity" or link == "log":
             Beta = np.array([0.5, 1, 1.5])
             X, Y = make_dataset(N=10000, Beta=Beta, link=link)
+            X = X[:, [0, 1]]  # Remove intercept
             cutoff = 1
 
         model = gamma_glm(link)

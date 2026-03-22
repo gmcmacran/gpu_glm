@@ -140,6 +140,11 @@ class IRLS(ABC):
         X = self._to_backend(X)
         Y = self._to_backend(Y)
 
+        # Add intercept column if missing
+        if not xp_backend.allclose(X[:, -1], 1):
+            ones = xp_backend.ones((X.shape[0], 1))
+            X = xp_backend.concatenate([X, ones], axis=1)
+
         n_features = X.shape[1]
 
         # Initialize coefficients
@@ -187,7 +192,12 @@ class IRLS(ABC):
         np.ndarray
             Predicted mean response ``mu``.
         """
+        xp_backend = xp()
         Xb = self._to_backend(X)
+        # Add intercept column if missing
+        if not xp_backend.allclose(Xb[:, -1], 1):
+            ones = xp_backend.ones((Xb.shape[0], 1))
+            Xb = xp_backend.concatenate([Xb, ones], axis=1)
         eta = Xb.dot(self._B)
         mu = self._inv_link(eta)
         return self._to_numpy(mu)
@@ -342,7 +352,12 @@ class bernoulli_glm(IRLS):
         return xp().ones(Y.shape[0])
 
     def predict_proba(self, X):
+        xp_backend = xp()
         Xb = self._to_backend(X)
+        # Add intercept column if missing
+        if not xp_backend.allclose(Xb[:, -1], 1):
+            ones = xp_backend.ones((Xb.shape[0], 1))
+            Xb = xp_backend.concatenate([Xb, ones], axis=1)
         props = self._inv_link(Xb.dot(self._B))
         props = self._to_numpy(props)
         return _np.column_stack([1 - props, props])
