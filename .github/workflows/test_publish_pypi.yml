@@ -22,7 +22,7 @@ jobs:
 
       - name: Show repo layout (diagnostic)
         run: |
-          echo "PWD: $(pwd)"
+          echo "pwd: $(pwd)"
           echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
           ls -la
           echo "Show pyproject.toml head (if present):"
