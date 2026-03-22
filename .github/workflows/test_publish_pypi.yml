@@ -38,7 +38,6 @@ jobs:
           twine check dist/*
 
       - name: Publish to TestPyPI via OIDC
-        if: github.event_name == 'push'
         uses: pypa/gh-action-pypi-publish@v1.8.11
         with:
           repository-url: https://test.pypi.org/legacy/
