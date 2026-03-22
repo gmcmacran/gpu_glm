@@ -1,3 +1,12 @@
+name: test_publish_pypi
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
 jobs:
   publish-testpypi:
     name: Build & Upload to TestPyPI
@@ -11,17 +20,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Show repo layout (debug)
+      - name: Show repo layout
         run: |
           echo "PWD: $(pwd)"
           ls -la
           echo "Show pyproject.toml head:"
           sed -n '1,120p' pyproject.toml || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Ensure packaging toolchain is up-to-date
         run: |
@@ -35,16 +44,14 @@ jobs:
         run: |
           python -m build
 
-      - name: Inspect built wheel METADATA (debug)
+      - name: Inspect built wheel METADATA
         run: |
           set -e
           WHEEL=$(ls dist/*.whl | head -n1)
           echo "Wheel: $WHEEL"
           echo "---- METADATA ----"
-          unzip -p "$WHEEL" "$(basename "$WHEEL" .whl).dist-info/METADATA" || \
-            unzip -p "$WHEEL" */*.dist-info/METADATA || true
+          unzip -p "$WHEEL" "$(basename "$WHEEL" .whl).dist-info/METADATA" || unzip -p "$WHEEL" */*.dist-info/METADATA || true
           echo "---- END METADATA ----"
-          echo "List dist:"
           ls -la dist
 
       - name: Verify package metadata with twine
