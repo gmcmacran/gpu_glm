@@ -18,17 +18,18 @@ jobs:
 
     defaults:
       run:
-        working-directory: ${{ github.workspace }}/..
+        working-directory: ${{ github.workspace }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show repo layout
+      - name: Show repo layout (diagnostic)
         run: |
           echo "PWD: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
           ls -la
-          echo "Show pyproject.toml head:"
+          echo "Show pyproject.toml head (if present):"
           sed -n '1,120p' pyproject.toml || true
 
       - name: Set up Python
