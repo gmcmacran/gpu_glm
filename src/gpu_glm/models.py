@@ -1,7 +1,64 @@
 from abc import ABC, ABCMeta, abstractmethod
 
-import numpy as np
+import numpy as _np
+
+try:
+    import cupy as _cp
+
+    CUPY_AVAILABLE = True
+except ImportError:
+    _cp = None
+    CUPY_AVAILABLE = False
+
 import scipy.stats as stats
+
+
+def xp():
+    """Return the active array module (CuPy if available, else NumPy)."""
+    return _cp if CUPY_AVAILABLE else _np
+
+
+def backend_info():
+    """
+    Return a human‑readable description of the active compute backend.
+
+    Returns
+    -------
+    str
+        A multi‑line string describing whether the package is using
+        NumPy (CPU) or CuPy (GPU), and GPU details if available.
+    """
+    if not CUPY_AVAILABLE:
+        return "Backend: NumPy (CPU)\nCuPy not installed. All computations run on CPU."
+
+    # CuPy is available → gather GPU info
+    try:
+        device_id = _cp.cuda.runtime.getDevice()
+        props = _cp.cuda.runtime.getDeviceProperties(device_id)
+
+        name = props["name"].decode("utf-8")
+        total_mem = props["totalGlobalMem"] / (1024**3)
+        mp_count = props["multiProcessorCount"]
+
+        cuda_rt = _cp.cuda.runtime.runtimeGetVersion()
+        cuda_drv = _cp.cuda.runtime.driverGetVersion()
+
+        return (
+            "Backend: CuPy (GPU)\n"
+            f"Device: {name}\n"
+            f"Total Memory: {total_mem:.2f} GB\n"
+            f"Multiprocessors: {mp_count}\n"
+            f"CUDA Runtime Version: {cuda_rt}\n"
+            f"CUDA Driver Version: {cuda_drv}"
+        )
+
+    except Exception as e:
+        # Fallback if GPU query fails
+        return (
+            "Backend: CuPy (GPU)\n"
+            "CuPy is installed, but GPU properties could not be retrieved.\n"
+            f"Error: {e}"
+        )
 
 
 class IRLS(ABC):
@@ -33,10 +90,28 @@ class IRLS(ABC):
             ``"logit"``, ``"inverse"``, ``"probit"``, ``"sqrt"``,
             ``"1/mu^2"``).
         """
-        self._B = np.zeros([0])  # coefficient vector
-        self._link = link  # link function name
+        self._B = None
+        self._link = link
         super().__init__()
 
+    # -----------------------------
+    # Backend helpers
+    # -----------------------------
+    def _to_backend(self, arr):
+        """Convert input to backend array (CuPy if available, else NumPy)."""
+        if CUPY_AVAILABLE:
+            return _cp.asarray(arr)
+        return _np.asarray(arr)
+
+    def _to_numpy(self, arr):
+        """Convert backend array to NumPy (for SciPy/stats)."""
+        if CUPY_AVAILABLE:
+            return _cp.asnumpy(arr)
+        return arr
+
+    # -----------------------------
+    # Public API
+    # -----------------------------
     def coef(self):
         """
         Return the fitted coefficient vector.
@@ -46,7 +121,7 @@ class IRLS(ABC):
         np.ndarray
             The coefficient vector ``B`` of shape ``(n_features,)``.
         """
-        return self._B
+        return self._to_numpy(self._B)
 
     def fit(self, X, Y):
         """
@@ -58,28 +133,68 @@ class IRLS(ABC):
             Design matrix.
         Y : np.ndarray, shape (n_samples,)
             Response vector.
-
         """
-        self._B = np.zeros([X.shape[1]])
-        self._B[X.shape[1] - 1] = np.mean(Y)
+        xp_backend = xp()
 
-        tol = 1000
-        while tol > 0.00001:
+        # Convert to backend (CuPy or NumPy)
+        X = self._to_backend(X)
+        Y = self._to_backend(Y)
+
+        n_features = X.shape[1]
+
+        # Initialize coefficients
+        self._B = xp_backend.zeros(n_features)
+        self._B[-1] = Y.mean()
+
+        tol = 1e6
+        while tol > 1e-5:
             eta = X.dot(self._B)
             mu = self._inv_link(eta)
 
-            _w = (1 / (self._var_mu(mu) * self._a_of_phi(Y, mu, self._B))) * np.power(
-                self._del_eta_del_mu(mu), 2
-            )
+            # Vectorized weights
+            w = (
+                1 / (self._var_mu(mu) * self._a_of_phi(Y, mu, self._B))
+            ) * xp_backend.power(self._del_eta_del_mu(mu), 2)
 
-            W = np.diag(_w)
+            # Vectorized z
             z = (Y - mu) * self._del_eta_del_mu(mu) + eta
 
-            B_update = np.linalg.inv(X.T.dot(W).dot(X)).dot(X.T).dot(W).dot(z)
+            # Weighted least squares without forming diag(W)
+            # X^T W X  ==  (X * w[:, None]).T @ X
+            Xw = X * w[:, None]
+            XtWX = Xw.T.dot(X)
+            XtWz = Xw.T.dot(z)
 
-            tol = np.sum(np.abs(B_update - self._B))
-            self._B = B_update.copy()
+            # Solve for update
+            B_new = xp_backend.linalg.solve(XtWX, XtWz)
 
+            tol = xp_backend.sum(xp_backend.abs(B_new - self._B))
+            self._B = B_new
+
+        return self
+
+    def predict(self, X):
+        """
+        Predict the mean response for new data.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (n_samples, n_features)
+            Design matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted mean response ``mu``.
+        """
+        Xb = self._to_backend(X)
+        eta = Xb.dot(self._B)
+        mu = self._inv_link(eta)
+        return self._to_numpy(mu)
+
+    # -----------------------------
+    # Link functions
+    # -----------------------------
     def _inv_link(self, eta):
         """
         Apply the inverse link function.
@@ -94,20 +209,24 @@ class IRLS(ABC):
         np.ndarray
             Mean response ``mu``.
         """
+        xp_backend = xp()
+
         if self._link == "identity":
             return eta
         elif self._link == "log":
-            return np.exp(eta)
+            return xp_backend.exp(eta)
         elif self._link == "inverse":
             return 1 / eta
         elif self._link == "logit":
-            return np.exp(eta) / (1 + np.exp(eta))
+            e = xp_backend.exp(eta)
+            return e / (1 + e)
         elif self._link == "probit":
-            return stats.norm.cdf(eta)
+            eta_np = self._to_numpy(eta)
+            return self._to_backend(stats.norm.cdf(eta_np))
         elif self._link == "sqrt":
-            return np.power(eta, 2)
+            return xp_backend.power(eta, 2)
         elif self._link == "1/mu^2":
-            return 1 / np.power(eta, 1 / 2)
+            return 1 / xp_backend.power(eta, 0.5)
 
     def _del_eta_del_mu(self, mu):
         """
@@ -123,21 +242,27 @@ class IRLS(ABC):
         np.ndarray
             Derivative ``dη/dμ`` evaluated at ``mu``.
         """
+        xp_backend = xp()
+
         if self._link == "identity":
-            return np.ones([mu.shape[0]])
+            return xp_backend.ones(mu.shape)
         elif self._link == "log":
             return 1 / mu
         elif self._link == "inverse":
-            return -1 / np.power(mu, 2)
+            return -1 / xp_backend.power(mu, 2)
         elif self._link == "logit":
             return 1 / (mu * (1 - mu))
         elif self._link == "probit":
-            return stats.norm.pdf(stats.norm.ppf(mu))
+            mu_np = self._to_numpy(mu)
+            return self._to_backend(stats.norm.pdf(stats.norm.ppf(mu_np)))
         elif self._link == "sqrt":
-            return 0.5 * np.power(mu, -0.5)
+            return 0.5 * xp_backend.power(mu, -0.5)
         elif self._link == "1/mu^2":
-            return -2 / np.power(mu, 3)
+            return -2 / xp_backend.power(mu, 3)
 
+    # -----------------------------
+    # Abstract variance + dispersion
+    # -----------------------------
     @abstractmethod
     def _var_mu(self, mu):
         """
@@ -176,77 +301,27 @@ class IRLS(ABC):
         """
         pass
 
-    def predict(self, X):
-        """
-        Predict the mean response for new data.
 
-        Parameters
-        ----------
-        X : np.ndarray, shape (n_samples, n_features)
-            Design matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted mean response ``mu``.
-        """
-        return self._inv_link(X.dot(self._B))
-
-
+# -----------------------------
+# GLM Subclasses
+# -----------------------------
 class gaussian_glm(IRLS):
     """
     Gaussian GLM with identity, log, or inverse link.
     """
 
     def __init__(self, link="identity"):
-        """
-        Initialize a Gaussian GLM.
-
-        Parameters
-        ----------
-        link : {"identity", "log", "inverse"}, default "identity"
-            Link function to use.
-        """
         if link in ("identity", "log", "inverse"):
             super().__init__(link)
         else:
             raise ValueError(f"Invalid link: {link}")
 
     def _var_mu(self, mu):
-        """
-        Variance function for Gaussian distribution.
-
-        Parameters
-        ----------
-        mu : np.ndarray
-            Mean response.
-
-        Returns
-        -------
-        np.ndarray
-            Constant variance of ones.
-        """
-        return np.ones([mu.shape[0]])
+        return xp().ones(mu.shape)
 
     def _a_of_phi(self, Y, mu, B):
-        """
-        Estimate dispersion using residual sum of squares.
-
-        Parameters
-        ----------
-        Y : np.ndarray
-            Observed response.
-        mu : np.ndarray
-            Mean response.
-        B : np.ndarray
-            Coefficient vector.
-
-        Returns
-        -------
-        float
-            Estimated dispersion.
-        """
-        return np.sum((Y - mu) ** 2) / (Y.shape[0] - B.shape[0])
+        xp_backend = xp()
+        return xp_backend.sum((Y - mu) ** 2) / (Y.shape[0] - B.shape[0])
 
 
 class bernoulli_glm(IRLS):
@@ -255,77 +330,24 @@ class bernoulli_glm(IRLS):
     """
 
     def __init__(self, link="logit"):
-        """
-        Initialize a Bernoulli GLM.
-
-        Parameters
-        ----------
-        link : {"logit", "probit"}, default "logit"
-            Link function to use.
-        """
         if link in ("logit", "probit"):
             super().__init__(link)
         else:
             raise ValueError(f"Invalid link: {link}")
 
     def _var_mu(self, mu):
-        """
-        Variance function for Bernoulli distribution.
-
-        Parameters
-        ----------
-        mu : np.ndarray
-            Mean response.
-
-        Returns
-        -------
-        np.ndarray
-            Variance ``mu * (1 - mu)``.
-        """
         return mu * (1 - mu)
 
     def _a_of_phi(self, Y, mu, B):
-        """
-        Dispersion for Bernoulli distribution.
-
-        Returns
-        -------
-        np.ndarray
-            Array of ones (dispersion fixed at 1).
-        """
-        return np.ones([Y.shape[0]])
+        return xp().ones(Y.shape[0])
 
     def predict_proba(self, X):
-        """
-        Predict class probabilities.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Design matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Array of shape ``(n_samples, 2)`` with ``P(Y=0)`` and ``P(Y=1)``.
-        """
-        props = self._inv_link(X.dot(self.coef()))
-        return np.column_stack([1 - props, props])
+        Xb = self._to_backend(X)
+        props = self._inv_link(Xb.dot(self._B))
+        props = self._to_numpy(props)
+        return _np.column_stack([1 - props, props])
 
     def predict(self, X):
-        """
-        Predict class labels (0 or 1).
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Design matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted class labels.
-        """
         probs = self.predict_proba(X)
         return (probs[:, 1] > 0.5).astype(int)
 
@@ -336,45 +358,16 @@ class poisson_glm(IRLS):
     """
 
     def __init__(self, link="log"):
-        """
-        Initialize a Poisson GLM.
-
-        Parameters
-        ----------
-        link : {"log", "identity", "sqrt"}, default "log"
-            Link function to use.
-        """
         if link in ("log", "identity", "sqrt"):
             super().__init__(link)
         else:
             raise ValueError(f"Invalid link: {link}")
 
     def _var_mu(self, mu):
-        """
-        Variance function for Poisson distribution.
-
-        Parameters
-        ----------
-        mu : np.ndarray
-            Mean response.
-
-        Returns
-        -------
-        np.ndarray
-            Variance equal to ``mu``.
-        """
         return mu
 
     def _a_of_phi(self, Y, mu, B):
-        """
-        Dispersion for Poisson distribution.
-
-        Returns
-        -------
-        np.ndarray
-            Array of ones (dispersion fixed at 1).
-        """
-        return np.ones([Y.shape[0]])
+        return xp().ones(Y.shape[0])
 
 
 class gamma_glm(IRLS):
@@ -383,57 +376,20 @@ class gamma_glm(IRLS):
     """
 
     def __init__(self, link="inverse"):
-        """
-        Initialize a Gamma GLM.
-
-        Parameters
-        ----------
-        link : {"inverse", "identity", "log"}, default "inverse"
-            Link function to use.
-        """
         if link in ("inverse", "identity", "log"):
             super().__init__(link)
         else:
             raise ValueError(f"Invalid link: {link}")
 
     def _var_mu(self, mu):
-        """
-        Variance function for Gamma distribution.
-
-        Parameters
-        ----------
-        mu : np.ndarray
-            Mean response.
-
-        Returns
-        -------
-        np.ndarray
-            Variance proportional to ``mu**2``.
-        """
         return mu**2
 
     def _a_of_phi(self, Y, mu, B):
-        """
-        Method-of-moments estimate of dispersion.
-
-        Parameters
-        ----------
-        Y : np.ndarray
-            Observed response.
-        mu : np.ndarray
-            Mean response.
-        B : np.ndarray
-            Coefficient vector.
-
-        Returns
-        -------
-        np.ndarray
-            Estimated dispersion repeated for each sample.
-        """
+        xp_backend = xp()
         numerator = (Y - mu) ** 2
         denominator = mu**2 * (Y.shape[0] - B.shape[0])
-        phi = np.sum(numerator / denominator)
-        return np.ones(Y.shape[0]) * phi
+        phi = xp_backend.sum(numerator / denominator)
+        return xp_backend.ones(Y.shape[0]) * phi
 
 
 class inverse_gaussian_glm(IRLS):
@@ -442,51 +398,14 @@ class inverse_gaussian_glm(IRLS):
     """
 
     def __init__(self, link="1/mu^2"):
-        """
-        Initialize an Inverse Gaussian GLM.
-
-        Parameters
-        ----------
-        link : {"1/mu^2", "inverse", "identity", "log"}, default "1/mu^2"
-            Link function to use.
-        """
         if link in ("1/mu^2", "inverse", "identity", "log"):
             super().__init__(link)
         else:
             raise ValueError(f"Invalid link: {link}")
 
     def _var_mu(self, mu):
-        """
-        Variance function for Inverse Gaussian distribution.
-
-        Parameters
-        ----------
-        mu : np.ndarray
-            Mean response.
-
-        Returns
-        -------
-        np.ndarray
-            Variance proportional to ``mu**3``.
-        """
         return mu**3
 
     def _a_of_phi(self, Y, mu, B):
-        """
-        Negative dispersion estimate (canonical form).
-
-        Parameters
-        ----------
-        Y : np.ndarray
-            Observed response.
-        mu : np.ndarray
-            Mean response.
-        B : np.ndarray
-            Coefficient vector.
-
-        Returns
-        -------
-        float
-            Negative dispersion estimate.
-        """
-        return -np.sum((Y - mu) ** 2) / (Y.shape[0] - B.shape[0])
+        xp_backend = xp()
+        return -xp_backend.sum((Y - mu) ** 2) / (Y.shape[0] - B.shape[0])

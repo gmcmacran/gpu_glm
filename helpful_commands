@@ -1,5 +1,9 @@
 
-* Conda Environment: conda create -n gpu_glm python=3.13.5 -y
+* Conda Environment: conda create -n gpu_glm python=3.12 -y
+* Delete Environment: conda env remove -n gpu_glm
+* Install system dependancies: 
+*  conda install -c nvidia cuda-runtime=12.4 -n gpu_glm -y
+*  conda install -n gpu_glm -c conda-forge cupy -y
 * Activate Conda: conda activate gpu_glm
 * Deactivate Conda: conda deactivate
 * Install build: pip install build
@@ -13,5 +17,6 @@
 * Test: pytest -v
 * Document: mkdocs build --strict
 * Serve documentation: mkdocs serve
+* symlink index.md and README: ln -s docs/index.md README.md
 
 from gpu_glm import gaussian_glm, bernoulli_glm, poisson_glm, gamma_glm, inverse_gaussian_glm

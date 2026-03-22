@@ -24,4 +24,5 @@ nav:
       - Poisson GLM: api/poisson_glm.md
       - Gamma GLM: api/gamma_glm.md
       - Inverse Gaussian GLM: api/inverse_gaussian_glm.md
+      - Backend Info: api/backend_info.md
 
