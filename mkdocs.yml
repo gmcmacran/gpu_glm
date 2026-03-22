@@ -1,0 +1,28 @@
+site_name: gpu_glm
+
+theme:
+  name: material
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            inherited_members: true
+            show_source: true
+            docstring_style: numpy
+
+
+
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - IRLS Base Class: api/irls.md
+      - Gaussian GLM: api/gaussian_glm.md
+      - Bernoulli GLM: api/bernoulli_glm.md
+      - Poisson GLM: api/poisson_glm.md
+      - Gamma GLM: api/gamma_glm.md
+      - Inverse Gaussian GLM: api/inverse_gaussian_glm.md
+      - Backend Info: api/backend_info.md
+

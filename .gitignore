@@ -1,0 +1,10 @@
+site/
+    index.html
+    api/...
+site/
+build/
+dist/
+tests/__pycache__
+*.egg-info/
+__pycache__/
+
