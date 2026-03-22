@@ -15,6 +15,10 @@ jobs:
       id-token: write
       contents: read
 
+    defaults:
+      run:
+        working-directory: gpu_glm
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
