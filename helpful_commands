@@ -7,6 +7,7 @@
 * Activate Conda: conda activate gpu_glm
 * Deactivate Conda: conda deactivate
 * Install build: pip install build
+* Install twine: pip install twine
 * Build: python -m build
 * Install: pip install .
 * Install Dev: pip install -e .[dev]
