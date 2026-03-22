@@ -32,6 +32,7 @@ gpu = [
 dev = [
     "numpy>=2.4.3",
     "scipy>=1.17.1",
+    "scikit-learn>=1.8.0",
     "pytest>=9.0.2",
     "ruff>=0.15.1",
     "pre-commit>=4.5.1",
