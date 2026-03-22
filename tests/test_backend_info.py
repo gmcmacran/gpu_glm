@@ -1,4 +1,3 @@
-
 from gpu_glm.models import backend_info
 
 
