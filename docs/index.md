@@ -8,6 +8,7 @@ This package provides:
 - Multiple link functions (identity, log, inverse, logit, probit, etc.)
 - A Cupy-based implementation that falls back to Numpy.
 - A sci-kit learn interface.
+- L2 regularization.
 
 ---
 
