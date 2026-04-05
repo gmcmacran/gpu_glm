@@ -2,8 +2,9 @@
 # Testing L2 regularization (alpha)
 ########################################
 import numpy as np
-from numpy.testing import assert_allclose
 import pytest
+from numpy.testing import assert_allclose
+
 from gpu_glm import poisson_glm
 
 
@@ -23,7 +24,8 @@ def make_dataset(N, seed=1):
 def test_alpha_default_is_zero():
     model = poisson_glm()
     assert model._alpha == 0.0
-    
+
+
 def test_alpha_shrinks_coefficients():
     X, y, _ = make_dataset(10000)
     model_unreg = poisson_glm(alpha=0.0)
@@ -54,6 +56,7 @@ def test_intercept_not_regularized():
     reg_intercept = model_reg.coef()[-1]
     assert abs(reg_intercept - unreg_intercept) < 0.1
 
+
 def test_valid_alpha():
     with pytest.raises(ValueError):
-        poisson_glm(alpha = -42.0)
+        poisson_glm(alpha=-42.0)

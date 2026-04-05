@@ -3,6 +3,7 @@
 ########################################
 import numpy as np
 import pytest
+
 from gpu_glm import inverse_gaussian_glm
 
 
@@ -53,6 +54,7 @@ def test_intercept_not_regularized():
     reg_intercept = model_reg.coef()[-1]
     assert abs(reg_intercept - unreg_intercept) < 0.1
 
+
 def test_valid_alpha():
     with pytest.raises(ValueError):
-        inverse_gaussian_glm(alpha = -42.0)
+        inverse_gaussian_glm(alpha=-42.0)

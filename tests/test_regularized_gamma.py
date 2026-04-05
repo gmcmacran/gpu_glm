@@ -2,8 +2,9 @@
 # Testing L2 regularization (alpha)
 ########################################
 import numpy as np
-from numpy.testing import assert_allclose
 import pytest
+from numpy.testing import assert_allclose
+
 from gpu_glm import gamma_glm
 
 
@@ -55,6 +56,7 @@ def test_intercept_not_regularized():
     reg_intercept = model_reg.coef()[-1]
     assert abs(reg_intercept - unreg_intercept) < 0.1
 
+
 def test_valid_alpha():
     with pytest.raises(ValueError):
-        gamma_glm(alpha = -42.0)
+        gamma_glm(alpha=-42.0)
