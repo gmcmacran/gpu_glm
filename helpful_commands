@@ -11,7 +11,7 @@
 * Build: python -m build
 * Install: pip install .
 * Install Dev: pip install -e .[dev]
-* Uninstall: pip uninstall gpu_glm -y
+* Uninstall: pip uninstall gpu-glm -y
 * Style: ruff format .
 * Lint: ruff check . --fix
 * Pre-commit check: pre-commit run --all-files

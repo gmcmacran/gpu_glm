@@ -16,7 +16,7 @@ This package provides:
 To use the GPU, cupy must be installed with a GPU dependancies already working. If cupy is unavailable, numpy is used.  
 
 ```bash
-pip install gpu_glm
+pip install gpu-glm
 ```
 
 A conda package to handle GPU dependancies is under development.
