@@ -75,11 +75,16 @@ class IRLS(ABC):
     ----------
     link : str
         Name of the link function. Supported values depend on the subclass.
+    alpha : float, default=0.0
+        L2 regularization strength. Matches scikit-learn's ``alpha``
+        parameter in ``PoissonRegressor``, ``GammaRegressor``, etc.
+        The penalty term is ``(alpha / 2) * ||coef||^2``. The intercept
+        is not regularized.
     """
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, link):
+    def __init__(self, link, alpha=0.0):
         """
         Initialize the IRLS model.
 
@@ -89,9 +94,18 @@ class IRLS(ABC):
             The link function to use (e.g., ``"identity"``, ``"log"``,
             ``"logit"``, ``"inverse"``, ``"probit"``, ``"sqrt"``,
             ``"1/mu^2"``).
+        alpha : float, default=0.0
+            L2 regularization strength. The penalty is
+            ``(alpha / 2) * ||coef||^2``. The intercept is excluded
+            from regularization.
         """
+        if alpha >= 0.0:
+            self._alpha = alpha
+        else:
+            raise ValueError(f"Invalid alpha: {alpha}. Alpha must be non-negative.")
         self._B = None
         self._link = link
+        self._alpha = alpha
         super().__init__()
 
     # -----------------------------
@@ -169,6 +183,11 @@ class IRLS(ABC):
             Xw = X * w[:, None]
             XtWX = Xw.T.dot(X)
             XtWz = Xw.T.dot(z)
+
+            # L2 regularization: add alpha to diagonal (exclude intercept)
+            if self._alpha > 0:
+                n_coef = n_features - 1
+                XtWX[:n_coef, :n_coef] += self._alpha * xp_backend.eye(n_coef)
 
             # Solve for update
             B_new = xp_backend.linalg.solve(XtWX, XtWz)
@@ -318,11 +337,18 @@ class IRLS(ABC):
 class gaussian_glm(IRLS):
     """
     Gaussian GLM with identity, log, or inverse link.
+
+    Parameters
+    ----------
+    link : str, default="identity"
+        Link function. One of ``"identity"``, ``"log"``, ``"inverse"``.
+    alpha : float, default=0.0
+        L2 regularization strength.
     """
 
-    def __init__(self, link="identity"):
+    def __init__(self, link="identity", alpha=0.0):
         if link in ("identity", "log", "inverse"):
-            super().__init__(link)
+            super().__init__(link, alpha=alpha)
         else:
             raise ValueError(f"Invalid link: {link}")
 
@@ -337,11 +363,18 @@ class gaussian_glm(IRLS):
 class bernoulli_glm(IRLS):
     """
     Bernoulli GLM with logit or probit link.
+
+    Parameters
+    ----------
+    link : str, default="logit"
+        Link function. One of ``"logit"``, ``"probit"``.
+    alpha : float, default=0.0
+        L2 regularization strength.
     """
 
-    def __init__(self, link="logit"):
+    def __init__(self, link="logit", alpha=0.0):
         if link in ("logit", "probit"):
-            super().__init__(link)
+            super().__init__(link, alpha=alpha)
         else:
             raise ValueError(f"Invalid link: {link}")
 
@@ -370,11 +403,18 @@ class bernoulli_glm(IRLS):
 class poisson_glm(IRLS):
     """
     Poisson GLM with log, identity, or sqrt link.
+
+    Parameters
+    ----------
+    link : str, default="log"
+        Link function. One of ``"log"``, ``"identity"``, ``"sqrt"``.
+    alpha : float, default=0.0
+        L2 regularization strength.
     """
 
-    def __init__(self, link="log"):
+    def __init__(self, link="log", alpha=0.0):
         if link in ("log", "identity", "sqrt"):
-            super().__init__(link)
+            super().__init__(link, alpha=alpha)
         else:
             raise ValueError(f"Invalid link: {link}")
 
@@ -388,11 +428,18 @@ class poisson_glm(IRLS):
 class gamma_glm(IRLS):
     """
     Gamma GLM with inverse, identity, or log link.
+
+    Parameters
+    ----------
+    link : str, default="inverse"
+        Link function. One of ``"inverse"``, ``"identity"``, ``"log"``.
+    alpha : float, default=0.0
+        L2 regularization strength.
     """
 
-    def __init__(self, link="inverse"):
+    def __init__(self, link="inverse", alpha=0.0):
         if link in ("inverse", "identity", "log"):
-            super().__init__(link)
+            super().__init__(link, alpha=alpha)
         else:
             raise ValueError(f"Invalid link: {link}")
 
@@ -410,11 +457,18 @@ class gamma_glm(IRLS):
 class inverse_gaussian_glm(IRLS):
     """
     Inverse Gaussian GLM with 1/μ², inverse, identity, or log link.
+
+    Parameters
+    ----------
+    link : str, default="1/mu^2"
+        Link function. One of ``"1/mu^2"``, ``"inverse"``, ``"identity"``, ``"log"``.
+    alpha : float, default=0.0
+        L2 regularization strength.
     """
 
-    def __init__(self, link="1/mu^2"):
+    def __init__(self, link="1/mu^2", alpha=0.0):
         if link in ("1/mu^2", "inverse", "identity", "log"):
-            super().__init__(link)
+            super().__init__(link, alpha=alpha)
         else:
             raise ValueError(f"Invalid link: {link}")
 
