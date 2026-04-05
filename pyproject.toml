@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gpu-glm"
-version = "0.1.1"
+version = "0.1.2"
 description = "Regularized GLM models running on a GPU."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,20 +14,13 @@ authors = [
     { name = "Greg McMahan", email = "gmcmacran@gmail.com" }
 ]
 
-# IMPORTANT:
-# Do NOT list CuPy here if you want Conda to install it.
-# These dependencies must be CPU‑safe and pip‑installable everywhere.
 dependencies = [
     "numpy>=2.4.3",
     "scipy>=1.17.1"
 ]
 
 [project.optional-dependencies]
-# Users who want GPU support can install this extra via pip,
-# but Conda users will ignore it and install CuPy themselves.
-gpu = [
-    "cupy>=14.0.1"
-]
+gpu = ["cupy>=14.0.1"]
 
 dev = [
     "numpy>=2.4.3",
@@ -52,3 +45,9 @@ target-version = "py313"
 select = ["E", "F", "I", "B", "UP", "SIM", "C4"]
 
 [tool.ruff.format]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.data-files]
+"tests" = ["tests/*.py"]
