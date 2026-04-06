@@ -1,4 +1,4 @@
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 
 import numpy as _np
 
@@ -82,8 +82,6 @@ class IRLS(ABC):
         is not regularized.
     """
 
-    __metaclass__ = ABCMeta
-
     def __init__(self, link, alpha=0.0):
         """
         Initialize the IRLS model.
@@ -99,9 +97,7 @@ class IRLS(ABC):
             ``(alpha / 2) * ||coef||^2``. The intercept is excluded
             from regularization.
         """
-        if alpha >= 0.0:
-            self._alpha = alpha
-        else:
+        if alpha < 0.0:
             raise ValueError(f"Invalid alpha: {alpha}. Alpha must be non-negative.")
         self._B = None
         self._link = link
@@ -165,7 +161,7 @@ class IRLS(ABC):
         self._B = xp_backend.zeros(n_features)
         self._B[-1] = Y.mean()
 
-        tol = 1e6
+        tol = 1.0
         while tol > 1e-5:
             eta = X.dot(self._B)
             mu = self._inv_link(eta)
